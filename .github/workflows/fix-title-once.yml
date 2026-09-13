@@ -18,45 +18,64 @@ jobs:
         with:
           ref: main
 
-      - name: Update browser and page titles
+      - name: Update browser title and hero copy
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
+
+          browser_title = 'Thailand 2026 | Bangkok & Krabi Family Trip'
+          hero_title = 'Thailand 2026: Bangkok & Krabi'
+          hero_subtitle = 'Six days across Bangkok and Krabi — city highlights, markets, island escapes, food stops and the complete family travel plan.'
 
           for filename in ('index.html', '404.html'):
               p = Path(filename)
               if not p.exists():
                   continue
               s = p.read_text(encoding='utf-8')
-              s = re.sub(
-                  r'<title>.*?</title>',
-                  '<title>Thailand 2026 — Bangkok & Krabi Family Adventure</title>',
-                  s,
-                  count=1,
-                  flags=re.S,
-              )
+
+              s = re.sub(r'<title>.*?</title>', f'<title>{browser_title}</title>', s, count=1, flags=re.S)
               s = re.sub(
                   r'<meta\s+content="[^"]*"\s+name="description"\s*/?>',
-                  '<meta content="Thailand 2026 family trip through Bangkok and Krabi — a complete six-day itinerary with transport, food stops and travel plans." name="description"/>',
+                  '<meta content="Six-day Thailand family trip through Bangkok and Krabi, with the complete itinerary, transport plan, food stops and practical travel notes." name="description"/>',
                   s,
                   count=1,
                   flags=re.I,
               )
-              s = s.replace('Thailand 2026 — Real-Photo Door-to-Door Trip Timeline', 'Thailand 2026 — Bangkok & Krabi Family Adventure')
-              s = s.replace('Real-Photo Door-to-Door Trip Timeline', 'Bangkok & Krabi Family Adventure')
-              s = s.replace('Static real-photo presentation website for the full 8-person Thailand family trip, with image-linked timeline for every travel step.', 'Thailand 2026 family trip through Bangkok and Krabi — a complete six-day itinerary with transport, food stops and travel plans.')
+
+              # Replace the old over-written hero copy with concise, trip-relevant wording.
+              old_titles = [
+                  'Thailand 2026. Bangkok, Krabi & every step between.',
+                  'Thailand 2026. Bangkok, Krabi &amp; every step between.',
+                  'Thailand 2026 — Bangkok & Krabi Family Adventure',
+                  'Thailand 2026 — Bangkok &amp; Krabi Family Adventure',
+              ]
+              for old in old_titles:
+                  s = s.replace(old, hero_title)
+
+              old_subtitles = [
+                  'A complete door-to-door family journey for 8 travelers — designed to be clear on a phone, elegant on a big screen, and useful while you are actually travelling.',
+                  'A complete door-to-door family journey for 8 travellers — designed to be clear on a phone, elegant on a big screen, and useful while you are actually travelling.',
+                  'Six unforgettable days across Bangkok and Krabi — city landmarks, markets, island scenery, family time and every journey in between.',
+              ]
+              for old in old_subtitles:
+                  s = s.replace(old, hero_subtitle)
+
+              # Remove the attraction-price disclaimer everywhere, including an entire chip/pill if present.
+              s = re.sub(r'<(?:div|span)\b[^>]*class="[^"]*(?:chip|pill)[^"]*"[^>]*>\s*No attraction ticket prices shown\s*</(?:div|span)>', '', s, flags=re.I)
+              s = s.replace('No attraction ticket prices shown', '')
+
               p.write_text(s, encoding='utf-8')
           PY
 
       - name: Commit title update
         run: |
           if git diff --quiet -- index.html 404.html; then
-            echo "Title already correct."
+            echo "Title and hero copy already correct."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html 404.html
-          git commit -m "Fix website title"
+          git commit -m "Clean up Thailand trip hero copy"
           git push origin main
