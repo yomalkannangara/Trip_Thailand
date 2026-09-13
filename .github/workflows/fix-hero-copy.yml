@@ -1,0 +1,64 @@
+name: Fix hero copy exactly
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/fix-hero-copy.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Replace hero title and subtitle
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          NEW_H1 = 'Thailand 2026: Bangkok & Krabi'
+          NEW_P = 'Six days across Bangkok and Krabi — city highlights, markets, island escapes, food stops and the complete family travel plan.'
+
+          for filename in ('index.html','404.html'):
+              p = Path(filename)
+              if not p.exists():
+                  continue
+              s = p.read_text(encoding='utf-8')
+
+              # Exact old hero wording seen on the live page.
+              s = s.replace('Thailand 2026. Bangkok, Krabi & every step between.', NEW_H1)
+              s = s.replace('A complete door-to-door family journey for 8 travelers — designed to be clear on a phone, elegant on a big screen, and useful while you are actually travelling.', NEW_P)
+
+              # Remove the unwanted note wherever it appears.
+              for text in (
+                  'No attraction ticket prices shown',
+                  'No attraction ticket prices shown.',
+                  'No attraction ticket prices shown —',
+              ):
+                  s = s.replace(text, '')
+
+              # Catch the hero heading/subtitle structurally if wording varies slightly.
+              s = re.sub(r'(<div class="hero-inner"[^>]*>.*?<h1>).*?(</h1>)', r'\1' + NEW_H1 + r'\2', s, count=1, flags=re.S)
+              s = re.sub(r'(<div class="hero-inner"[^>]*>.*?</h1>\s*<p>).*?(</p>)', r'\1' + NEW_P + r'\2', s, count=1, flags=re.S)
+
+              p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit
+        run: |
+          if git diff --quiet -- index.html 404.html; then
+            echo "Hero copy already correct."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html 404.html
+          git commit -m "Fix hero title and subtitle"
+          git push origin main
