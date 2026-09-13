@@ -22,9 +22,10 @@ jobs:
 
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
-          local = 'assets/prince-palace-lobby.jpg'
+          local = 'image.png'
 
-          old_urls = [
+          old_refs = [
+              'assets/prince-palace-lobby.jpg',
               'https://pix10.agoda.net/generic/5e4a9805d493ef4cee572b2811ecfb30.jpeg?ce=2',
               'https://ak-d.tripcdn.com/images/1mi1a2224vfq9f3dc5827_W_1280_0_R5_Q100.jpg?proc=source/trip',
               'https://princepalace.bangkokhotel.info/data/Photos/OriginalPhoto/12743/1274301/1274301037.JPEG',
@@ -33,23 +34,23 @@ jobs:
           ]
 
           before = s
-          for u in old_urls:
-              s = s.replace(u, local)
+          for ref in old_refs:
+              s = s.replace(ref, local)
 
-          # Remove the special Prince Palace remote-retry handler if present.
-          s = s.replace("if(!this.dataset.ppRetry){this.dataset.ppRetry='1';this.src=this.dataset.ppFallback;return;}else{", "")
-          s = s.replace("data-pp-fallback=\"assets/prince-palace-lobby.jpg\"", "")
+          # Normalize any Prince Palace fallback attribute to the uploaded root image.
+          import re
+          s = re.sub(r'data-pp-fallback="[^"]*"', 'data-pp-fallback="image.png"', s)
 
           p.write_text(s, encoding='utf-8')
           print('Prince Palace references changed:', before != s)
       - name: Commit repaired site
         run: |
           if git diff --quiet -- index.html; then
-            echo "Prince Palace image is already linked locally."
+            echo "Prince Palace image is already linked to image.png."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Use local Prince Palace image asset"
+          git commit -m "Link Prince Palace image.png"
           git push origin main
