@@ -1,0 +1,62 @@
+name: Fix site title once
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/fix-title-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Update browser and page titles
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          for filename in ('index.html', '404.html'):
+              p = Path(filename)
+              if not p.exists():
+                  continue
+              s = p.read_text(encoding='utf-8')
+              s = re.sub(
+                  r'<title>.*?</title>',
+                  '<title>Thailand 2026 — Bangkok & Krabi Family Adventure</title>',
+                  s,
+                  count=1,
+                  flags=re.S,
+              )
+              s = re.sub(
+                  r'<meta\s+content="[^"]*"\s+name="description"\s*/?>',
+                  '<meta content="Thailand 2026 family trip through Bangkok and Krabi — a complete six-day itinerary with transport, food stops and travel plans." name="description"/>',
+                  s,
+                  count=1,
+                  flags=re.I,
+              )
+              s = s.replace('Thailand 2026 — Real-Photo Door-to-Door Trip Timeline', 'Thailand 2026 — Bangkok & Krabi Family Adventure')
+              s = s.replace('Real-Photo Door-to-Door Trip Timeline', 'Bangkok & Krabi Family Adventure')
+              s = s.replace('Static real-photo presentation website for the full 8-person Thailand family trip, with image-linked timeline for every travel step.', 'Thailand 2026 family trip through Bangkok and Krabi — a complete six-day itinerary with transport, food stops and travel plans.')
+              p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit title update
+        run: |
+          if git diff --quiet -- index.html 404.html; then
+            echo "Title already correct."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html 404.html
+          git commit -m "Fix website title"
+          git push origin main
