@@ -1,0 +1,149 @@
+name: Presentation-ready polish
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Polish titles, labels and presentation mode
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          files = [Path('index.html'), Path('404.html')]
+          for p in files:
+              if not p.exists():
+                  continue
+              s = p.read_text(encoding='utf-8')
+
+              # Professional browser title and description.
+              s = re.sub(r'<title>.*?</title>', '<title>Thailand 2026 — Family Journey | Bangkok & Krabi</title>', s, count=1, flags=re.S)
+              s = re.sub(
+                  r'<meta\s+content="[^"]*"\s+name="description"\s*/?>',
+                  '<meta content="A complete six-day Thailand family journey through Bangkok and Krabi, with a practical door-to-door itinerary, transport plan, food stops and travel notes." name="description"/>',
+                  s,
+                  count=1,
+                  flags=re.I,
+              )
+
+              # Remove technical / behind-the-scenes photo wording from the visible presentation.
+              s = re.sub(r'<div class="photo-note">.*?</div>', '', s, flags=re.S)
+              s = s.replace('Real photo · Wikimedia Commons ↗', 'Photo source ↗')
+              s = s.replace('Real photo · Wikimedia Commons', 'Photo source')
+              s = s.replace('Real photo ·', 'Photo source ·')
+              s = s.replace('Real web photo', 'Photo')
+              s = s.replace('Real internet photograph', 'Photo')
+              s = s.replace('real internet photographs', 'photographs')
+              s = s.replace('real web photos', 'photographs')
+              s = s.replace('REAL-PHOTO TIMELINE V3', 'TIMELINE MEDIA')
+
+              # Make the presentation button call a real presentation function and identify it for styling.
+              s = re.sub(
+                  r'<button class="btn secondary" onclick="document\.body\.classList\.toggle\(\'present\'\)">Presentation mode</button>',
+                  '<button class="btn secondary" data-present-toggle onclick="togglePresentation(this)">Presentation mode</button>',
+                  s,
+              )
+
+              # If markup differs slightly, catch the text/button form too.
+              s = re.sub(
+                  r'<button([^>]*)onclick="document\.body\.classList\.toggle\(\'present\'\)"([^>]*)>\s*Presentation mode\s*</button>',
+                  r'<button\1data-present-toggle onclick="togglePresentation(this)"\2>Presentation mode</button>',
+                  s,
+              )
+
+              # Presentation-specific CSS: unmistakable, clean, full-screen and source-free.
+              css = r'''
+/* PRESENTATION READY MODE */
+body.present{background:#fff;overflow-x:hidden}
+body.present .topbar{display:none}
+body.present .notice{display:none}
+body.present .photo-note{display:none}
+body.present .hero{min-height:100vh}
+body.present .hero-inner{padding:110px 0 90px}
+body.present .hero h1{font-size:clamp(3.3rem,7.6vw,7rem);max-width:1100px}
+body.present .hero p{font-size:clamp(1.15rem,2vw,1.5rem);max-width:900px}
+body.present section{padding:58px 0}
+body.present .toolbar{position:sticky;top:0;z-index:70;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);padding:12px 0;margin-bottom:22px;border-bottom:1px solid #e5ebef}
+body.present .toolbar .btn:not([data-present-toggle]){display:none}
+body.present .toolbar [data-present-toggle]{background:#102f51;color:#fff;margin-left:auto}
+body.present .day{border-radius:20px;box-shadow:0 10px 30px rgba(16,47,81,.10);margin-bottom:34px}
+body.present .day-copy{padding:46px 46px 30px}
+body.present .day h3{font-size:clamp(2rem,3.5vw,3.1rem)}
+body.present .day-summary{font-size:1.05rem}
+body.present .timeline{padding:16px 46px 46px}
+body.present .event{grid-template-columns:minmax(120px,150px) minmax(240px,300px) minmax(0,1fr);gap:26px;padding:26px 0}
+body.present .time{font-size:1.08rem}
+body.present .event-body b{font-size:1.28rem}
+body.present .event-body p{font-size:1.02rem;line-height:1.58}
+body.present .event-media img{height:165px}
+body.present .event-media strong{font-size:.88rem}
+body.present .img-source,body.present .source-link,body.present .day-credit,body.present .hero-photo-credit,body.present .image-credit-grid,body.present .source-note{display:none!important}
+body.present .gallery-title{font-size:.9rem}
+body.present .place-card b{font-size:1.08rem}
+body.present .place-card span{font-size:.92rem}
+@media(max-width:900px){body.present .event{grid-template-columns:1fr;gap:12px}body.present .timeline,body.present .day-copy,body.present .gallery-wrap{padding-left:22px;padding-right:22px}body.present .event-media img{height:150px}}
+'''
+              if '/* PRESENTATION READY MODE */' not in s:
+                  s = s.replace('</style>', css + '\n</style>', 1)
+
+              # Replace or add robust presentation JS.
+              js = r'''
+<script id="presentation-mode-script">
+function setPresentationButtonState(on){
+  document.querySelectorAll('[data-present-toggle]').forEach(function(btn){
+    btn.textContent = on ? 'Exit presentation' : 'Presentation mode';
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+function togglePresentation(btn){
+  var on = !document.body.classList.contains('present');
+  document.body.classList.toggle('present', on);
+  document.querySelectorAll('.day').forEach(function(day){ if(on) day.classList.remove('collapsed'); });
+  setPresentationButtonState(on);
+  if(on){
+    if(document.documentElement.requestFullscreen){
+      document.documentElement.requestFullscreen().catch(function(){});
+    }
+    window.scrollTo({top:0,behavior:'smooth'});
+  } else if(document.fullscreenElement && document.exitFullscreen){
+    document.exitFullscreen().catch(function(){});
+  }
+}
+document.addEventListener('fullscreenchange', function(){
+  if(!document.fullscreenElement && document.body.classList.contains('present')){
+    document.body.classList.remove('present');
+    setPresentationButtonState(false);
+  }
+});
+document.addEventListener('keydown', function(e){
+  if((e.key==='p' || e.key==='P') && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)){
+    togglePresentation(document.querySelector('[data-present-toggle]'));
+  }
+});
+</script>
+'''
+              s = re.sub(r'<script id="presentation-mode-script">.*?</script>\s*', '', s, flags=re.S)
+              s = s.replace('</body>', js + '\n</body>', 1)
+
+              p.write_text(s, encoding='utf-8')
+
+      - name: Commit presentation polish
+        run: |
+          if git diff --quiet -- index.html 404.html; then
+            echo "No presentation changes needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html 404.html
+          git commit -m "Polish site for presentation mode"
+          git push origin main
