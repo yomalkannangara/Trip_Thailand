@@ -15,37 +15,41 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Replace Prince Palace image sources
+      - name: Link uploaded Prince Palace photo
         shell: python
         run: |
           from pathlib import Path
 
           p = Path('index.html')
           s = p.read_text(encoding='utf-8')
+          local = 'assets/prince-palace-lobby.jpg'
 
-          old_primary = 'https://pix10.agoda.net/generic/5e4a9805d493ef4cee572b2811ecfb30.jpeg?ce=2'
-          old_fallback = 'https://ak-d.tripcdn.com/images/1mi1a2224vfq9f3dc5827_W_1280_0_R5_Q100.jpg?proc=source/trip'
-
-          new_primary = 'https://princepalace.bangkokhotel.info/data/Photos/OriginalPhoto/12743/1274301/1274301037.JPEG'
-          new_fallback = 'https://ak-d.tripcdn.com/images/1mi5m2215gcxnjmlsE0F5_W_640_0_R5_Q80.jpg?proc=source%2Ftrip'
+          old_urls = [
+              'https://pix10.agoda.net/generic/5e4a9805d493ef4cee572b2811ecfb30.jpeg?ce=2',
+              'https://ak-d.tripcdn.com/images/1mi1a2224vfq9f3dc5827_W_1280_0_R5_Q100.jpg?proc=source/trip',
+              'https://princepalace.bangkokhotel.info/data/Photos/OriginalPhoto/12743/1274301/1274301037.JPEG',
+              'https://ak-d.tripcdn.com/images/1mi5m2215gcxnjmlsE0F5_W_640_0_R5_Q80.jpg?proc=source%2Ftrip',
+              'https://ppl.princepalace.co.th/wp-content/uploads/2024/11/23_Lobby_Suie.jpg'
+          ]
 
           before = s
-          s = s.replace(old_primary, new_primary)
-          s = s.replace(old_fallback, new_fallback)
+          for u in old_urls:
+              s = s.replace(u, local)
 
-          # If any older official-hotel hotlink remains, replace that too.
-          s = s.replace('https://ppl.princepalace.co.th/wp-content/uploads/2024/11/23_Lobby_Suie.jpg', new_primary)
+          # Remove the special Prince Palace remote-retry handler if present.
+          s = s.replace("if(!this.dataset.ppRetry){this.dataset.ppRetry='1';this.src=this.dataset.ppFallback;return;}else{", "")
+          s = s.replace("data-pp-fallback=\"assets/prince-palace-lobby.jpg\"", "")
 
           p.write_text(s, encoding='utf-8')
           print('Prince Palace references changed:', before != s)
       - name: Commit repaired site
         run: |
           if git diff --quiet -- index.html; then
-            echo "Prince Palace image sources are already repaired."
+            echo "Prince Palace image is already linked locally."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Fix Prince Palace hotel images"
+          git commit -m "Use local Prince Palace image asset"
           git push origin main
