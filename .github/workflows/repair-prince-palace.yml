@@ -15,17 +15,25 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Link uploaded Prince Palace photo
+      - name: Make uploaded Prince Palace photo reliable
         shell: python
         run: |
           from pathlib import Path
+          import re
 
-          p = Path('index.html')
-          s = p.read_text(encoding='utf-8')
-          local = 'image.png'
+          # Use a root-relative GitHub Pages URL so the image also works when
+          # 404.html is serving the site at a nested/incorrect route.
+          local = '/Trip_Thailand/image.png?v=20260913-pp3'
+          raw = 'https://raw.githubusercontent.com/yomalkannangara/Trip_Thailand/main/image.png?v=20260913-pp3'
+          retry = (
+              "if(!this.dataset.ppRetry){this.dataset.ppRetry='1';"
+              f"this.src='{raw}';"
+              "}else{this.onerror=null;}"
+          )
 
           old_refs = [
               'assets/prince-palace-lobby.jpg',
+              'image.png',
               'https://pix10.agoda.net/generic/5e4a9805d493ef4cee572b2811ecfb30.jpeg?ce=2',
               'https://ak-d.tripcdn.com/images/1mi1a2224vfq9f3dc5827_W_1280_0_R5_Q100.jpg?proc=source/trip',
               'https://princepalace.bangkokhotel.info/data/Photos/OriginalPhoto/12743/1274301/1274301037.JPEG',
@@ -33,24 +41,50 @@ jobs:
               'https://ppl.princepalace.co.th/wp-content/uploads/2024/11/23_Lobby_Suie.jpg'
           ]
 
-          before = s
-          for ref in old_refs:
-              s = s.replace(ref, local)
+          changed = []
+          for filename in ('index.html', '404.html'):
+              p = Path(filename)
+              if not p.exists():
+                  continue
+              s = p.read_text(encoding='utf-8')
+              before = s
 
-          # Normalize any Prince Palace fallback attribute to the uploaded root image.
-          import re
-          s = re.sub(r'data-pp-fallback="[^"]*"', 'data-pp-fallback="image.png"', s)
+              # First normalize old Prince Palace URLs if they are still present.
+              for ref in old_refs:
+                  s = s.replace(ref, local)
+              s = re.sub(r'data-pp-fallback="[^"]*"', f'data-pp-fallback="{local}"', s)
 
-          p.write_text(s, encoding='utf-8')
-          print('Prince Palace references changed:', before != s)
+              # Then specifically rewrite the Prince Palace lobby <img> tag.
+              def fix_tag(m):
+                  tag = m.group(0)
+                  tag = re.sub(r'\s+src="[^"]*"', '', tag)
+                  tag = re.sub(r'\s+onerror="[^"]*"', '', tag)
+                  if tag.endswith('/>'):
+                      tag = tag[:-2].rstrip() + f' src="{local}" onerror="{retry}"/>'
+                  else:
+                      tag = tag[:-1].rstrip() + f' src="{local}" onerror="{retry}">'
+                  return tag
+
+              s = re.sub(
+                  r'<img\b[^>]*alt="Prince Palace Hotel lobby"[^>]*>',
+                  fix_tag,
+                  s,
+                  flags=re.I,
+              )
+
+              if s != before:
+                  p.write_text(s, encoding='utf-8')
+                  changed.append(filename)
+
+          print('Changed:', ', '.join(changed) if changed else 'nothing')
       - name: Commit repaired site
         run: |
-          if git diff --quiet -- index.html; then
-            echo "Prince Palace image is already linked to image.png."
+          if git diff --quiet -- index.html 404.html; then
+            echo "Prince Palace image is already using the reliable local asset."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git commit -m "Link Prince Palace image.png"
+          git add index.html 404.html
+          git commit -m "Fix Prince Palace image on all Pages routes"
           git push origin main
