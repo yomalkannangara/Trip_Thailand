@@ -27,24 +27,48 @@ jobs:
                   continue
               s = p.read_text(encoding='utf-8')
 
-              s = re.sub(r'<title>.*?</title>', '<title>Thailand 2026 — Family Journey | Bangkok & Krabi</title>', s, count=1, flags=re.S)
+              # Clean professional naming everywhere visible.
+              s = re.sub(r'<title>.*?</title>', '<title>Thailand 2026 — Bangkok & Krabi Family Adventure</title>', s, count=1, flags=re.S)
               s = re.sub(
                   r'<meta\s+content="[^"]*"\s+name="description"\s*/?>',
-                  '<meta content="A complete six-day Thailand family journey through Bangkok and Krabi, with a practical door-to-door itinerary, transport plan, food stops and travel notes." name="description"/>',
+                  '<meta content="Our six-day Thailand family adventure through Bangkok and Krabi, with the complete itinerary, transport plan, food stops and travel notes." name="description"/>',
                   s,
                   count=1,
                   flags=re.I,
               )
 
+              # Main hero title/subtitle: remove technical wording such as real-photo/timeline.
+              s = re.sub(
+                  r'(<div class="hero-inner"[^>]*>.*?<h1>).*?(</h1>)',
+                  r'\1Thailand 2026<br>Bangkok &amp; Krabi Family Adventure\2',
+                  s,
+                  count=1,
+                  flags=re.S,
+              )
+              s = re.sub(
+                  r'(<div class="hero-inner"[^>]*>.*?<h1>.*?</h1>\s*<p>).*?(</p>)',
+                  r'\1Six unforgettable days across Bangkok and Krabi — city landmarks, markets, island scenery, family time and every journey in between.\2',
+                  s,
+                  count=1,
+                  flags=re.S,
+              )
+
+              # Remove technical / behind-the-scenes photo wording from visible presentation.
               s = re.sub(r'<div class="photo-note">.*?</div>', '', s, flags=re.S)
-              s = s.replace('Real photo · Wikimedia Commons ↗', 'Photo source ↗')
-              s = s.replace('Real photo · Wikimedia Commons', 'Photo source')
-              s = s.replace('Real photo ·', 'Photo source ·')
-              s = s.replace('Real web photo', 'Photo')
-              s = s.replace('Real internet photograph', 'Photo')
-              s = s.replace('real internet photographs', 'photographs')
-              s = s.replace('real web photos', 'photographs')
-              s = s.replace('REAL-PHOTO TIMELINE V3', 'TIMELINE MEDIA')
+              replacements = {
+                  'Thailand 2026 — Real-Photo Door-to-Door Trip Timeline':'Thailand 2026 — Bangkok & Krabi Family Adventure',
+                  'Real-Photo Door-to-Door Trip Timeline':'Bangkok & Krabi Family Adventure',
+                  'Real photo · Wikimedia Commons ↗':'Photo source ↗',
+                  'Real photo · Wikimedia Commons':'Photo source',
+                  'Real photo ·':'Photo source ·',
+                  'Real web photo':'Photo',
+                  'Real internet photograph':'Photo',
+                  'real internet photographs':'photographs',
+                  'real web photos':'photographs',
+                  'REAL-PHOTO TIMELINE V3':'TIMELINE MEDIA',
+              }
+              for old, new in replacements.items():
+                  s = s.replace(old, new)
 
               s = re.sub(
                   r'<button class="btn secondary" onclick="document\.body\.classList\.toggle\(\'present\'\)">Presentation mode</button>',
@@ -140,5 +164,5 @@ document.addEventListener('keydown', function(e){
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html 404.html
-          git commit -m "Polish site for presentation mode"
+          git commit -m "Use clean Thailand trip title"
           git push origin main
