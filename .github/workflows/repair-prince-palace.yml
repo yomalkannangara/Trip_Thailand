@@ -1,0 +1,51 @@
+name: Repair Prince Palace image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Replace Prince Palace image sources
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old_primary = 'https://pix10.agoda.net/generic/5e4a9805d493ef4cee572b2811ecfb30.jpeg?ce=2'
+          old_fallback = 'https://ak-d.tripcdn.com/images/1mi1a2224vfq9f3dc5827_W_1280_0_R5_Q100.jpg?proc=source/trip'
+
+          new_primary = 'https://princepalace.bangkokhotel.info/data/Photos/OriginalPhoto/12743/1274301/1274301037.JPEG'
+          new_fallback = 'https://ak-d.tripcdn.com/images/1mi5m2215gcxnjmlsE0F5_W_640_0_R5_Q80.jpg?proc=source%2Ftrip'
+
+          before = s
+          s = s.replace(old_primary, new_primary)
+          s = s.replace(old_fallback, new_fallback)
+
+          # If any older official-hotel hotlink remains, replace that too.
+          s = s.replace('https://ppl.princepalace.co.th/wp-content/uploads/2024/11/23_Lobby_Suie.jpg', new_primary)
+
+          p.write_text(s, encoding='utf-8')
+          print('Prince Palace references changed:', before != s)
+      - name: Commit repaired site
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "Prince Palace image sources are already repaired."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Fix Prince Palace hotel images"
+          git push origin main
