@@ -1,6 +1,8 @@
 name: Presentation-ready polish
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -25,7 +27,6 @@ jobs:
                   continue
               s = p.read_text(encoding='utf-8')
 
-              # Professional browser title and description.
               s = re.sub(r'<title>.*?</title>', '<title>Thailand 2026 — Family Journey | Bangkok & Krabi</title>', s, count=1, flags=re.S)
               s = re.sub(
                   r'<meta\s+content="[^"]*"\s+name="description"\s*/?>',
@@ -35,7 +36,6 @@ jobs:
                   flags=re.I,
               )
 
-              # Remove technical / behind-the-scenes photo wording from the visible presentation.
               s = re.sub(r'<div class="photo-note">.*?</div>', '', s, flags=re.S)
               s = s.replace('Real photo · Wikimedia Commons ↗', 'Photo source ↗')
               s = s.replace('Real photo · Wikimedia Commons', 'Photo source')
@@ -46,21 +46,17 @@ jobs:
               s = s.replace('real web photos', 'photographs')
               s = s.replace('REAL-PHOTO TIMELINE V3', 'TIMELINE MEDIA')
 
-              # Make the presentation button call a real presentation function and identify it for styling.
               s = re.sub(
                   r'<button class="btn secondary" onclick="document\.body\.classList\.toggle\(\'present\'\)">Presentation mode</button>',
                   '<button class="btn secondary" data-present-toggle onclick="togglePresentation(this)">Presentation mode</button>',
                   s,
               )
-
-              # If markup differs slightly, catch the text/button form too.
               s = re.sub(
                   r'<button([^>]*)onclick="document\.body\.classList\.toggle\(\'present\'\)"([^>]*)>\s*Presentation mode\s*</button>',
                   r'<button\1data-present-toggle onclick="togglePresentation(this)"\2>Presentation mode</button>',
                   s,
               )
 
-              # Presentation-specific CSS: unmistakable, clean, full-screen and source-free.
               css = r'''
 /* PRESENTATION READY MODE */
 body.present{background:#fff;overflow-x:hidden}
@@ -95,7 +91,6 @@ body.present .place-card span{font-size:.92rem}
               if '/* PRESENTATION READY MODE */' not in s:
                   s = s.replace('</style>', css + '\n</style>', 1)
 
-              # Replace or add robust presentation JS.
               js = r'''
 <script id="presentation-mode-script">
 function setPresentationButtonState(on){
